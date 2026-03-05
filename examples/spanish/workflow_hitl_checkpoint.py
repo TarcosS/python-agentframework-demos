@@ -15,7 +15,6 @@ Ejecutar:
 import asyncio
 import os
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -181,15 +180,10 @@ async def main() -> None:
     )
 
     # Verifica si hay checkpoints existentes para reanudar
-    checkpoints = await storage.list_checkpoints(workflow_name=workflow.name)
-    if checkpoints:
-        sorted_cps = sorted(checkpoints, key=lambda cp: datetime.fromisoformat(cp.timestamp))
-        latest = sorted_cps[-1]
-        print(
-            f"📂 Se encontraron {len(sorted_cps)} checkpoint(s)."
-            f" Reanudando desde el más reciente: {latest.checkpoint_id}"
-        )
-        stream = workflow.run(checkpoint_id=latest.checkpoint_id, stream=True)
+    checkpoint = await storage.get_latest(workflow_name=workflow.name)
+    if checkpoint:
+        print(f"📂 Se encontró un checkpoint. Reanudando desde el más reciente: {checkpoint.checkpoint_id}")
+        stream = workflow.run(checkpoint_id=checkpoint.checkpoint_id, stream=True)
     else:
         brief = (
             "Presenta nuestra nueva freidora de aire compacta con canasta de 5 cuartos. Menciona el precio de $89, "

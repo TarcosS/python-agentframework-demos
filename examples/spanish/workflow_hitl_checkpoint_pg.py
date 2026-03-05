@@ -274,11 +274,10 @@ async def main() -> None:
     )
 
     # Verifica si hay checkpoints existentes para reanudar
-    checkpoints = await storage.list_checkpoints(workflow_name=workflow.name)
-    if checkpoints:
-        latest = checkpoints[-1]  # ya ordenados por timestamp
-        print(f"📂 Se encontraron {len(checkpoints)} checkpoint(s) en PostgreSQL. Reanudando desde el más reciente.")
-        stream = workflow.run(checkpoint_id=latest.checkpoint_id, stream=True)
+    checkpoint = await storage.get_latest(workflow_name=workflow.name)
+    if checkpoint:
+        print(f"📂 Se encontró un checkpoint en PostgreSQL. Reanudando desde el más reciente.")
+        stream = workflow.run(checkpoint_id=checkpoint.checkpoint_id, stream=True)
     else:
         brief = (
             "Presenta nuestra nueva freidora de aire compacta con canasta de 5 cuartos. Menciona el precio de $89, "

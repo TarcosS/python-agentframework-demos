@@ -274,11 +274,10 @@ async def main() -> None:
     )
 
     # Check if there are existing checkpoints to resume from
-    checkpoints = await storage.list_checkpoints(workflow_name=workflow.name)
-    if checkpoints:
-        latest = checkpoints[-1]  # already sorted by timestamp
-        print(f"📂 Found {len(checkpoints)} checkpoint(s) in PostgreSQL. Resuming from latest.")
-        stream = workflow.run(checkpoint_id=latest.checkpoint_id, stream=True)
+    checkpoint = await storage.get_latest(workflow_name=workflow.name)
+    if checkpoint:
+        print(f"📂 Found a checkpoint in PostgreSQL. Resuming from latest.")
+        stream = workflow.run(checkpoint_id=checkpoint.checkpoint_id, stream=True)
     else:
         brief = (
             "Introduce our new compact air fryer with a 5-quart basket. Mention the $89 price, "

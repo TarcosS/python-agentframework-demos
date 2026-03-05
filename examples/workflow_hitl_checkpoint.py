@@ -15,7 +15,6 @@ Run:
 import asyncio
 import os
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -181,12 +180,10 @@ async def main() -> None:
     )
 
     # Check if there are existing checkpoints to resume from
-    checkpoints = await storage.list_checkpoints(workflow_name=workflow.name)
-    if checkpoints:
-        sorted_cps = sorted(checkpoints, key=lambda cp: datetime.fromisoformat(cp.timestamp))
-        latest = sorted_cps[-1]
-        print(f"📂 Found {len(sorted_cps)} checkpoint(s). Resuming from latest: {latest.checkpoint_id}")
-        stream = workflow.run(checkpoint_id=latest.checkpoint_id, stream=True)
+    checkpoint = await storage.get_latest(workflow_name=workflow.name)
+    if checkpoint:
+        print(f"📂 Found checkpoint. Resuming from latest: {checkpoint.checkpoint_id}")
+        stream = workflow.run(checkpoint_id=checkpoint.checkpoint_id, stream=True)
     else:
         brief = (
             "Introduce our new compact air fryer with a 5-quart basket. Mention the $89 price, "

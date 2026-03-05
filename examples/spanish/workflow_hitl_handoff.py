@@ -56,6 +56,7 @@ def process_return(
     return_type: Annotated[str, "Either 'refund' or 'replacement'"],
 ) -> str:
     """Procesa una devolución de producto para el pedido indicado."""
+    print(f"\n🔧 [Herramienta llamada: process_return(order_number={order_number}, return_type={return_type})]")
     return f"Devolución procesada para el pedido {order_number}: {return_type} aprobado. Correo de confirmación enviado."
 
 
@@ -70,6 +71,7 @@ triage_agent = Agent(
         "return_agent para devoluciones. No puedes manejar problemas específicos tú mismo — siempre transfiere. "
         "Si un especialista acaba de terminar de ayudar, pregunta al cliente si necesita algo más "
         "— NO reenvíes al mismo especialista. "
+        "Los números de pedido son solo de 3 dígitos."
         "NO pidas información de contacto, correo electrónico ni número de teléfono. "
         "NO digas 'Adiós' hasta que el cliente confirme explícitamente que no tiene más preguntas."
     ),
@@ -80,6 +82,7 @@ order_agent = Agent(
     name="order_agent",
     instructions=(
         "Eres el especialista en seguimiento de pedidos. Ayuda al cliente a verificar el estado de su pedido. "
+        "Si el cliente necesita devolver un pedido, transfiere a return_agent. "
         "Cuando termines, transfiere de vuelta a triage_agent."
     ),
 )

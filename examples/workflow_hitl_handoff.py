@@ -56,6 +56,7 @@ def process_return(
     return_type: Annotated[str, "Either 'refund' or 'replacement'"],
 ) -> str:
     """Process a product return for the given order."""
+    print(f"\n🔧 [Tool called: process_return(order_number={order_number}, return_type={return_type})]")
     return f"Return processed for order {order_number}: {return_type} approved. Confirmation email sent."
 
 
@@ -70,6 +71,7 @@ triage_agent = Agent(
         "return_agent for returns. You cannot handle specific issues yourself — always hand off. "
         "If a specialist has just finished helping, ask the customer if there is anything else "
         "they need help with — do NOT re-route to the same specialist. "
+        "Order numbers are only 3 digits long."
         "Do NOT ask for contact information, email, or phone number. "
         "Do NOT say 'Goodbye' until the customer explicitly confirms they have no more questions."
     ),
@@ -79,7 +81,8 @@ order_agent = Agent(
     client=client,
     name="order_agent",
     instructions=(
-        "You are the order tracking specialist. Help the customer check order status. "
+        "You are the order tracking specialist. Help the customer check status of pending orders. "
+        "If the customer needs to return an order, hand off to return_agent. "
         "When done, hand off back to triage_agent."
     ),
 )

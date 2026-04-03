@@ -46,17 +46,17 @@ if API_HOST == "azure":
     client = OpenAIChatClient(
         base_url=f"{os.environ['AZURE_OPENAI_ENDPOINT']}/openai/v1/",
         api_key=token_provider,
-        model_id=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"],
+        model=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"],
     )
 elif API_HOST == "github":
     client = OpenAIChatClient(
         base_url="https://models.github.ai/inference",
         api_key=os.environ["GITHUB_TOKEN"],
-        model_id=os.getenv("GITHUB_MODEL", "openai/gpt-5-mini"),
+        model=os.getenv("GITHUB_MODEL", "openai/gpt-5-mini"),
     )
 else:
     client = OpenAIChatClient(
-        api_key=os.environ["OPENAI_API_KEY"], model_id=os.environ.get("OPENAI_MODEL", "gpt-5-mini")
+        api_key=os.environ["OPENAI_API_KEY"], model=os.environ.get("OPENAI_MODEL", "gpt-5-mini")
     )
 
 
@@ -99,7 +99,7 @@ class TripCoordinator(Executor):
     @handler
     async def start(self, request: str, ctx: WorkflowContext[AgentExecutorRequest]) -> None:
         """Kick off the first agent turn with the user's vague request."""
-        user_msg = Message("user", text=request)
+        user_msg = Message("user", contents=[request])
         await ctx.send_message(
             AgentExecutorRequest(messages=[user_msg], should_respond=True),
             target_id=self._agent_id,
@@ -129,7 +129,7 @@ class TripCoordinator(Executor):
         ctx: WorkflowContext[AgentExecutorRequest, str],
     ) -> None:
         """Forward the human's answer back to the agent."""
-        user_msg = Message("user", text=answer)
+        user_msg = Message("user", contents=[answer])
         await ctx.send_message(
             AgentExecutorRequest(messages=[user_msg], should_respond=True),
             target_id=self._agent_id,

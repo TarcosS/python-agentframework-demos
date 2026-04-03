@@ -38,7 +38,7 @@ import psycopg
 from openai import OpenAI
 from pgvector.psycopg import register_vector
 
-from agent_framework import Agent, AgentSession, BaseContextProvider, Message, SessionContext, SupportsAgentRun
+from agent_framework import Agent, AgentSession, ContextProvider, Message, SessionContext, SupportsAgentRun
 from agent_framework.openai import OpenAIChatClient
 from azure.identity import DefaultAzureCredential as SyncDefaultAzureCredential
 from azure.identity import get_bearer_token_provider as sync_get_bearer_token_provider
@@ -68,7 +68,7 @@ if API_HOST == "azure":
     chat_client = OpenAIChatClient(
         base_url=f"{os.environ['AZURE_OPENAI_ENDPOINT']}/openai/v1/",
         api_key=async_token_provider,
-        model_id=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"],
+        model=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"],
     )
     embed_client = OpenAI(
         base_url=f"{os.environ['AZURE_OPENAI_ENDPOINT']}/openai/v1/",
@@ -79,7 +79,7 @@ elif API_HOST == "github":
     chat_client = OpenAIChatClient(
         base_url="https://models.github.ai/inference",
         api_key=os.environ["GITHUB_TOKEN"],
-        model_id=os.getenv("GITHUB_MODEL", "openai/gpt-4.1-mini"),
+        model=os.getenv("GITHUB_MODEL", "openai/gpt-4.1-mini"),
     )
     embed_client = OpenAI(
         base_url="https://models.github.ai/inference",
@@ -88,7 +88,7 @@ elif API_HOST == "github":
     embed_model = "text-embedding-3-small"
 else:
     chat_client = OpenAIChatClient(
-        api_key=os.environ["OPENAI_API_KEY"], model_id=os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
+        api_key=os.environ["OPENAI_API_KEY"], model=os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
     )
     embed_client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     embed_model = "text-embedding-3-small"
@@ -256,7 +256,7 @@ QUERY_REWRITE_PROMPT = (
 # ── Context provider with query rewriting ────────────────────────────
 
 
-class PostgresQueryRewriteProvider(BaseContextProvider):
+class PostgresQueryRewriteProvider(ContextProvider):
     """Recupera conocimiento de productos usando consultas reescritas por LLM en multi-turno.
 
     En una conversación multi-turno, el último mensaje del usuario a menudo
@@ -294,8 +294,8 @@ class PostgresQueryRewriteProvider(BaseContextProvider):
         )
 
         rewrite_messages = [
-            Message(role="system", text=QUERY_REWRITE_PROMPT),
-            Message(role="user", text=f"Conversación:\n{conversation_text}"),
+            Message(role="system", contents=[QUERY_REWRITE_PROMPT]),
+            Message(role="user", contents=[f"Conversación:\n{conversation_text}"]),
         ]
 
         response = await self.rewrite_client.get_response(rewrite_messages)
@@ -364,7 +364,7 @@ class PostgresQueryRewriteProvider(BaseContextProvider):
 
         context.extend_messages(
             self.source_id,
-            [Message(role="user", text=self._format_results(results))],
+            [Message(role="user", contents=[self._format_results(results)])],
         )
 
 

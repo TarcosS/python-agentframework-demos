@@ -20,7 +20,7 @@ determinista es más eficiente y confiable que pedirle al LLM que decida
 usar una herramienta.
 
 Este ejemplo crea un pequeño catálogo de productos y usa un
-BaseContextProvider personalizado para inyectar filas relevantes en el contexto del LLM.
+ContextProvider personalizado para inyectar filas relevantes en el contexto del LLM.
 """
 
 import asyncio
@@ -31,7 +31,7 @@ import sqlite3
 import sys
 from typing import Any
 
-from agent_framework import Agent, AgentSession, BaseContextProvider, Message, SessionContext, SupportsAgentRun
+from agent_framework import Agent, AgentSession, ContextProvider, Message, SessionContext, SupportsAgentRun
 from agent_framework.openai import OpenAIChatClient
 from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
 from dotenv import load_dotenv
@@ -55,17 +55,17 @@ if API_HOST == "azure":
     client = OpenAIChatClient(
         base_url=f"{os.environ['AZURE_OPENAI_ENDPOINT']}/openai/v1/",
         api_key=token_provider,
-        model_id=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"],
+        model=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"],
     )
 elif API_HOST == "github":
     client = OpenAIChatClient(
         base_url="https://models.github.ai/inference",
         api_key=os.environ["GITHUB_TOKEN"],
-        model_id=os.getenv("GITHUB_MODEL", "openai/gpt-4.1-mini"),
+        model=os.getenv("GITHUB_MODEL", "openai/gpt-4.1-mini"),
     )
 else:
     client = OpenAIChatClient(
-        api_key=os.environ["OPENAI_API_KEY"], model_id=os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
+        api_key=os.environ["OPENAI_API_KEY"], model=os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
     )
 
 
@@ -192,7 +192,7 @@ def create_knowledge_db(db_path: str) -> sqlite3.Connection:
 # ── Proveedor de contexto personalizado para recuperación de conocimiento ──
 
 
-class SQLiteKnowledgeProvider(BaseContextProvider):
+class SQLiteKnowledgeProvider(ContextProvider):
     """Recupera conocimiento relevante de productos desde SQLite FTS5 antes de cada llamada al LLM.
 
     Sigue el patrón de "recuperación de conocimiento" donde el agente busca
@@ -268,7 +268,7 @@ class SQLiteKnowledgeProvider(BaseContextProvider):
 
         context.extend_messages(
             self.source_id,
-            [Message(role="user", text=self._format_results(results))],
+            [Message(role="user", contents=[self._format_results(results)])],
         )
 
 

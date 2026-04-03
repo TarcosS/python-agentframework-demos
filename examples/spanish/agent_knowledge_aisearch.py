@@ -15,7 +15,7 @@ Diagrama:
 
 Este ejemplo usa el AzureAISearchContextProvider incorporado en modo
 agentic, que maneja toda la canalización de recuperación: no necesitas
-crear una subclase de BaseContextProvider. El modo agentic usa Knowledge
+crear una subclase de ContextProvider. El modo agentic usa Knowledge
 Bases para razonamiento multi-hop entre documentos, dando resultados más
 precisos mediante planeación inteligente de consultas.
 
@@ -68,17 +68,17 @@ if API_HOST == "azure":
     client = OpenAIChatClient(
         base_url=f"{os.environ['AZURE_OPENAI_ENDPOINT']}/openai/v1/",
         api_key=token_provider,
-        model_id=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"],
+        model=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"],
     )
 elif API_HOST == "github":
     client = OpenAIChatClient(
         base_url="https://models.github.ai/inference",
         api_key=os.environ["GITHUB_TOKEN"],
-        model_id=os.getenv("GITHUB_MODEL", "openai/gpt-4.1-mini"),
+        model=os.getenv("GITHUB_MODEL", "openai/gpt-4.1-mini"),
     )
 else:
     client = OpenAIChatClient(
-        api_key=os.environ["OPENAI_API_KEY"], model_id=os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
+        api_key=os.environ["OPENAI_API_KEY"], model=os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
     )
 
 # ── Proveedor de contexto de Azure AI Search ────────────────────────

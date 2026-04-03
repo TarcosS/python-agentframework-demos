@@ -35,17 +35,17 @@ if API_HOST == "azure":
     client = OpenAIChatClient(
         base_url=f"{os.environ['AZURE_OPENAI_ENDPOINT']}/openai/v1/",
         api_key=token_provider,
-        model_id=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"],
+        model=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"],
     )
 elif API_HOST == "github":
     client = OpenAIChatClient(
         base_url="https://models.github.ai/inference",
         api_key=os.environ["GITHUB_TOKEN"],
-        model_id=os.getenv("GITHUB_MODEL", "openai/gpt-4.1-mini"),
+        model=os.getenv("GITHUB_MODEL", "openai/gpt-4.1-mini"),
     )
 else:
     client = OpenAIChatClient(
-        api_key=os.environ["OPENAI_API_KEY"], model_id=os.environ.get("OPENAI_MODEL", "gpt-5-mini")
+        api_key=os.environ["OPENAI_API_KEY"], model=os.environ.get("OPENAI_MODEL", "gpt-5-mini")
     )
 
 
@@ -93,13 +93,13 @@ class RankerExecutor(Executor):
             lines.append(f"- [{result.executor_id}]: \"{slogan}\"")
 
         messages = [
-            Message(role="system", text=(
+            Message(role="system", contents=[(
                 "You are a senior creative director judging marketing slogans. "
                 "Given a list of candidate slogans, rank them from best to worst. "
                 "For each slogan, give a 1-10 score and a one-sentence justification "
                 "evaluating creativity, memorability, clarity, and brand fit."
-            )),
-            Message(role="user", text="Candidate slogans:\n" + "\n".join(lines)),
+            )]),
+            Message(role="user", contents=["Candidate slogans:\n" + "\n".join(lines)]),
         ]
         response = await self._client.get_response(messages, options={"response_format": RankedSlogans})
         await ctx.yield_output(response.value)

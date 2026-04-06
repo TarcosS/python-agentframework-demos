@@ -38,24 +38,23 @@ def lookup_weather(city_name: str | None = None, zip_code: str | None = None) ->
 tools = [
     {
         "type": "function",
-        "function": {
-            "name": "lookup_weather",
-            "description": "Lookup the weather for a given city name or zip code.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "city_name": {
-                        "type": "string",
-                        "description": "The city name",
-                    },
-                    "zip_code": {
-                        "type": "string",
-                        "description": "The zip code",
-                    },
+        "name": "lookup_weather",
+        "description": "Lookup the weather for a given city name or zip code.",
+        "strict": True,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "city_name": {
+                    "type": ["string", "null"],
+                    "description": "The city name",
                 },
-                "strict": True,
-                "additionalProperties": False,
+                "zip_code": {
+                    "type": ["string", "null"],
+                    "description": "The zip code",
+                },
             },
+            "required": ["city_name", "zip_code"],
+            "additionalProperties": False,
         },
     }
 ]
@@ -64,29 +63,36 @@ messages = [
     {"role": "system", "content": "You are a weather chatbot."},
     {"role": "user", "content": "is it sunny in LA, CA?"},
 ]
-response = client.chat.completions.create(
+response = client.responses.create(
     model=MODEL_NAME,
-    messages=messages,
+    input=messages,
     tools=tools,
     tool_choice="auto",
+    store=False,
 )
 
 
 # Now actually call the function as indicated
-if response.choices[0].message.tool_calls:
-    tool_call = response.choices[0].message.tool_calls[0]
-    function_name = tool_call.function.name
-    function_arguments = json.loads(tool_call.function.arguments)
+function_calls = [item for item in response.output if item.type == "function_call"]
+if function_calls:
+    tool_call = function_calls[0]
+    function_name = tool_call.name
+    function_arguments = json.loads(tool_call.arguments)
     print(function_name)
     print(function_arguments)
 
     if function_name == "lookup_weather":
-        messages.append(response.choices[0].message)
         result = lookup_weather(**function_arguments)
-        messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": json.dumps(result)})
-        response = client.chat.completions.create(model=MODEL_NAME, messages=messages, tools=tools)
+        messages.extend(response.output)
+        messages.append({"type": "function_call_output", "call_id": tool_call.call_id, "output": json.dumps(result)})
+        response = client.responses.create(
+            model=MODEL_NAME,
+            input=messages,
+            tools=tools,
+            store=False,
+        )
         print(f"Response from {MODEL_NAME} on {API_HOST}:")
-        print(response.choices[0].message.content)
+        print(response.output_text)
 
 else:
-    print(response.choices[0].message.content)
+    print(response.output_text)

@@ -1,15 +1,14 @@
 """Shared configuration for the orchestrator demo.
 
-Provides factory functions for the OpenAI chat client, optional observability
+Provides factory functions for the chat client, optional observability
 setup (Azure Application Insights), and evaluation model configuration.
-Follows the same patterns used throughout the examples/ directory but
-extracted into a reusable module.
+Supports three providers via API_HOST: "azure" (default), "foundry", "openai".
 """
 
 import logging
 import os
+from typing import Any
 
-from agent_framework.openai import OpenAIChatClient
 from azure.identity.aio import AzureDeveloperCliCredential, DefaultAzureCredential, get_bearer_token_provider
 from dotenv import load_dotenv
 from rich.logging import RichHandler
@@ -24,39 +23,59 @@ logger = logging.getLogger("demo")
 logger.setLevel(logging.INFO)
 
 
+# ── Credential helper ──────────────────────────────────────────────────────
+
+
+def _create_credential() -> DefaultAzureCredential | AzureDeveloperCliCredential:
+    """Pick the right Azure credential based on AZURE_TENANT_ID."""
+    tenant_id = os.getenv("AZURE_TENANT_ID")
+    if tenant_id:
+        return AzureDeveloperCliCredential(tenant_id=tenant_id)
+    return DefaultAzureCredential()
+
+
 # ── Client factory ─────────────────────────────────────────────────────────
 
 
-def create_client() -> tuple[OpenAIChatClient, DefaultAzureCredential | None]:
-    """Create an OpenAI chat client based on API_HOST environment variable.
+def create_client() -> tuple[Any, Any]:
+    """Create a chat client based on API_HOST environment variable.
 
-    Returns (client, credential). The credential is non-None only when using
-    Azure and must be closed at the end of the process.
+    Supports "azure" (default), "foundry", and "openai".
+    Returns (client, credential). Credential must be closed at end of process.
     """
     api_host = os.getenv("API_HOST", "azure")
-    credential = None
+
+    if api_host == "foundry":
+        from agent_framework_foundry import FoundryChatClient
+
+        credential = _create_credential()
+        client = FoundryChatClient(
+            project_endpoint=os.environ["AZURE_AI_PROJECT"],
+            credential=credential,
+            model=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"],
+        )
+        return client, credential
 
     if api_host == "azure":
-        # Use AzureDeveloperCliCredential (azd auth) when AZURE_TENANT_ID is set,
-        # to avoid tenant mismatch if `az login` points to a different tenant.
-        tenant_id = os.getenv("AZURE_TENANT_ID")
-        if tenant_id:
-            credential = AzureDeveloperCliCredential(tenant_id=tenant_id)
-        else:
-            credential = DefaultAzureCredential()
+        from agent_framework.openai import OpenAIChatClient
+
+        credential = _create_credential()
         token_provider = get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default")
         client = OpenAIChatClient(
             base_url=f"{os.environ['AZURE_OPENAI_ENDPOINT']}/openai/v1/",
             api_key=token_provider,
             model=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"],
         )
-    else:
-        client = OpenAIChatClient(
-            api_key=os.environ["OPENAI_API_KEY"],
-            model=os.environ.get("OPENAI_MODEL", "gpt-5.4"),
-        )
+        return client, credential
 
-    return client, credential
+    # openai
+    from agent_framework.openai import OpenAIChatClient
+
+    client = OpenAIChatClient(
+        api_key=os.environ["OPENAI_API_KEY"],
+        model=os.environ.get("OPENAI_MODEL", "gpt-5.4"),
+    )
+    return client, None
 
 
 # ── Observability ──────────────────────────────────────────────────────────
@@ -98,12 +117,12 @@ def create_eval_model_config():
     """
     api_host = os.getenv("API_HOST", "azure")
 
-    if api_host == "azure":
+    if api_host in ("azure", "foundry"):
         from azure.ai.evaluation import AzureOpenAIModelConfiguration
 
         return AzureOpenAIModelConfiguration(
             type="azure_openai",
-            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+            azure_endpoint=os.getenv("AZURE_AI_PROJECT") or os.environ["AZURE_OPENAI_ENDPOINT"],
             azure_deployment=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"],
         )
     else:

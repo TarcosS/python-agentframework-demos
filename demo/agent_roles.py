@@ -16,6 +16,7 @@ from agent_framework import (
     Agent,
     AgentExecutorResponse,
     AgentResponseUpdate,
+    BaseChatClient,
     Executor,
     WorkflowBuilder,
     WorkflowContext,
@@ -23,7 +24,6 @@ from agent_framework import (
     handler,
     tool,
 )
-from agent_framework.openai import OpenAIChatClient
 from agent_framework.orchestrations import HandoffBuilder
 from pydantic import BaseModel
 from typing_extensions import Never
@@ -42,7 +42,7 @@ class ClassifyResult(BaseModel):
     reasoning: str
 
 
-def create_classifier(client: OpenAIChatClient) -> Agent:
+def create_classifier(client: BaseChatClient) -> Agent:
     """Classifier agent with structured output (response_format)."""
     return Agent(
         client=client,
@@ -111,7 +111,7 @@ async def enrich_feature(result: ClassifyResult, ctx: WorkflowContext[Never, str
     await ctx.yield_output(enriched)
 
 
-def build_classification_workflow(client: OpenAIChatClient):
+def build_classification_workflow(client: BaseChatClient):
     """Build the classification workflow with switch-case routing.
 
     Pattern source: examples/workflow_switch_case.py
@@ -140,7 +140,7 @@ def build_classification_workflow(client: OpenAIChatClient):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def create_planner(client: OpenAIChatClient) -> Agent:
+def create_planner(client: BaseChatClient) -> Agent:
     """Supervisor/planner agent that breaks down requests using sub-agent tools.
 
     Pattern source: examples/agent_supervisor.py
@@ -205,7 +205,7 @@ class SynthesizerExecutor(Executor):
 
     agent: Agent
 
-    def __init__(self, client: OpenAIChatClient, id: str = "Synthesizer"):
+    def __init__(self, client: BaseChatClient, id: str = "Synthesizer"):
         super().__init__(id=id)
         self.agent = Agent(
             client=client,
@@ -234,7 +234,7 @@ class SynthesizerExecutor(Executor):
         await ctx.yield_output(response.text)
 
 
-def create_security_agent(client: OpenAIChatClient) -> Agent:
+def create_security_agent(client: BaseChatClient) -> Agent:
     return Agent(
         client=client,
         name="SecurityAgent",
@@ -249,7 +249,7 @@ def create_security_agent(client: OpenAIChatClient) -> Agent:
     )
 
 
-def create_reliability_agent(client: OpenAIChatClient) -> Agent:
+def create_reliability_agent(client: BaseChatClient) -> Agent:
     return Agent(
         client=client,
         name="ReliabilityAgent",
@@ -264,7 +264,7 @@ def create_reliability_agent(client: OpenAIChatClient) -> Agent:
     )
 
 
-def create_cost_agent(client: OpenAIChatClient) -> Agent:
+def create_cost_agent(client: BaseChatClient) -> Agent:
     return Agent(
         client=client,
         name="CostAgent",
@@ -279,7 +279,7 @@ def create_cost_agent(client: OpenAIChatClient) -> Agent:
     )
 
 
-def create_integration_agent(client: OpenAIChatClient) -> Agent:
+def create_integration_agent(client: BaseChatClient) -> Agent:
     return Agent(
         client=client,
         name="IntegrationAgent",
@@ -294,7 +294,7 @@ def create_integration_agent(client: OpenAIChatClient) -> Agent:
     )
 
 
-def build_analysis_workflow(client: OpenAIChatClient):
+def build_analysis_workflow(client: BaseChatClient):
     """Build the parallel analysis workflow with fan-out/fan-in and LLM aggregation.
 
     Pattern source: examples/workflow_aggregator_summary.py
@@ -324,7 +324,7 @@ def build_analysis_workflow(client: OpenAIChatClient):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def build_handoff_review(client: OpenAIChatClient):
+def build_handoff_review(client: BaseChatClient):
     """Build the handoff-based review chain with explicit routing rules.
 
     Pattern source: examples/workflow_handoffbuilder_rules.py
@@ -389,7 +389,7 @@ def build_handoff_review(client: OpenAIChatClient):
     )
 
 
-async def run_handoff_review(client: OpenAIChatClient, synthesis: str) -> str:
+async def run_handoff_review(client: BaseChatClient, synthesis: str) -> str:
     """Run the handoff review chain and return the reviewed output.
 
     Pattern source: examples/workflow_handoffbuilder_rules.py (streaming events)
@@ -454,7 +454,7 @@ def get_distribution_list() -> list[dict[str, str]]:
     ]
 
 
-def create_approval_agent(client: OpenAIChatClient) -> Agent:
+def create_approval_agent(client: BaseChatClient) -> Agent:
     return Agent(
         client=client,
         name="ApprovalAgent",
@@ -495,7 +495,7 @@ async def conclude_workflow(
     await ctx.yield_output(response.agent_response.text)
 
 
-def build_approval_workflow(client: OpenAIChatClient):
+def build_approval_workflow(client: BaseChatClient):
     """Build the HITL approval workflow with tool-level approval gates.
 
     Pattern source: examples/workflow_hitl_tool_approval.py

@@ -97,54 +97,28 @@ resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
 }
 
 var openAiServiceName = '${prefix}-openai'
-module openAi 'br/public:avm/res/cognitive-services/account:0.7.1' = {
-  name: 'openai'
+var aiProjectName = '${prefix}-project'
+
+// AI Services account + model deployments + Foundry project
+// Uses raw Bicep (not AVM module) because allowProjectManagement isn't in AVM 0.7.1
+module openAi 'foundry_project.bicep' = {
+  name: 'aiServices'
   scope: resourceGroup
   params: {
-    name: openAiServiceName
+    accountName: openAiServiceName
     location: location
     tags: tags
-    kind: 'OpenAI'
-    sku: 'S0'
-    customSubDomainName: openAiServiceName
-    disableLocalAuth: true
-    networkAcls: {
-      defaultAction: 'Allow'
-      bypass: 'AzureServices'
-    }
-    deployments: [
-      {
-        name: azureOpenaiChatDeployment
-        model: {
-          format: 'OpenAI'
-          name: azureOpenaiChatModel
-          version: azureOpenaiChatModelVersion
-        }
-        sku: {
-          name: 'GlobalStandard'
-          capacity: azureOpenaiChatDeploymentCapacity
-        }
-      }
-      {
-        name: azureOpenaiEmbeddingDeployment
-        model: {
-          format: 'OpenAI'
-          name: azureOpenaiEmbeddingModel
-          version: azureOpenaiEmbeddingModelVersion
-        }
-        sku: {
-          name: 'GlobalStandard'
-          capacity: azureOpenaiEmbeddingDeploymentCapacity
-        }
-      }
-    ]
-    roleAssignments: [
-      {
-        principalId: principalId
-        roleDefinitionIdOrName: 'Cognitive Services OpenAI User'
-        principalType: principalType
-      }
-    ]
+    chatDeploymentName: azureOpenaiChatDeployment
+    chatModelName: azureOpenaiChatModel
+    chatModelVersion: azureOpenaiChatModelVersion
+    chatDeploymentCapacity: azureOpenaiChatDeploymentCapacity
+    embeddingDeploymentName: azureOpenaiEmbeddingDeployment
+    embeddingModelName: azureOpenaiEmbeddingModel
+    embeddingModelVersion: azureOpenaiEmbeddingModelVersion
+    embeddingDeploymentCapacity: azureOpenaiEmbeddingDeploymentCapacity
+    principalId: principalId
+    principalType: principalType
+    projectName: aiProjectName
   }
 }
 
@@ -188,3 +162,6 @@ output AZURE_OPENAI_EMBEDDING_DEPLOYMENT string = azureOpenaiEmbeddingDeployment
 
 // Specific to Application Insights
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = appInsights.outputs.connectionString
+
+// Specific to AI Foundry
+output AZURE_AI_PROJECT string = openAi.outputs.projectEndpoint

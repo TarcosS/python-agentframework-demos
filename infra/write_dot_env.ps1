@@ -19,3 +19,5 @@ Add-Content -Path .env -Value "AZURE_OPENAI_EMBEDDING_DEPLOYMENT=$azureOpenAiEmb
 Add-Content -Path .env -Value "AZURE_OPENAI_EMBEDDING_MODEL=$azureOpenAiEmbeddingModel"
 $appInsightsConnectionString = azd env get-value APPLICATIONINSIGHTS_CONNECTION_STRING
 Add-Content -Path .env -Value "APPLICATIONINSIGHTS_CONNECTION_STRING=$appInsightsConnectionString"
+$azureAiProject = azd env get-value AZURE_AI_PROJECT
+Add-Content -Path .env -Value "AZURE_AI_PROJECT=$azureAiProject"

@@ -60,7 +60,6 @@ param azureOpenaiChatDeployment string = 'gpt-5.4'
 // https://learn.microsoft.com/en-us/azure/ai-services/openai/quotas-limits
 param azureOpenaiChatDeploymentCapacity int = 30
 
-
 @description('Name of the text embedding model to deploy')
 param azureOpenaiEmbeddingModel string = 'text-embedding-3-large'
 
@@ -83,6 +82,10 @@ param principalId string = ''
 @description('Non-empty if the deployment is running on GitHub Actions')
 param runningOnGitHub string = ''
 
+@secure()
+@description('Bearer token for DevUI authentication')
+param devuiAuthToken string
+
 var principalType = empty(runningOnGitHub) ? 'User' : 'ServicePrincipal'
 
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
@@ -90,13 +93,11 @@ var prefix = '${environmentName}${resourceToken}'
 var tags = { 'azd-env-name': environmentName }
 
 // Organize resources in a resource group
-resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
-    name: '${prefix}-rg'
-    location: location
-    tags: tags
+resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = {
+  name: 'davic-cc-sandbox-rg'
 }
 
-var openAiServiceName = '${prefix}-openai'
+var openAiServiceName = '${prefix}-ai-openaitr'
 var aiProjectName = '${prefix}-project'
 
 // AI Services account + model deployments + Foundry project
@@ -149,6 +150,26 @@ module appInsights 'br/public:avm/res/insights/component:0.4.2' = {
   }
 }
 
+// DevUI — App Service deployment (private, token-authenticated)
+module devui 'devui.bicep' = {
+  name: 'devui'
+  scope: resourceGroup
+  params: {
+    location: location
+    tags: tags
+    prefix: prefix
+    devuiAuthToken: devuiAuthToken
+    azureOpenAiEndpoint: openAi.outputs.endpoint
+    azureOpenAiChatDeployment: azureOpenaiChatDeployment
+    azureOpenAiChatModel: azureOpenaiChatModel
+    azureOpenAiEmbeddingDeployment: azureOpenaiEmbeddingDeployment
+    azureOpenAiEmbeddingModel: azureOpenaiEmbeddingModel
+    azureTenantId: tenant().tenantId
+    appInsightsConnectionString: appInsights.outputs.connectionString
+    azureAiProject: openAi.outputs.projectEndpoint
+  }
+}
+
 output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = tenant().tenantId
 output AZURE_RESOURCE_GROUP string = resourceGroup.name
@@ -165,3 +186,9 @@ output APPLICATIONINSIGHTS_CONNECTION_STRING string = appInsights.outputs.connec
 
 // Specific to AI Foundry
 output AZURE_AI_PROJECT string = openAi.outputs.projectEndpoint
+
+// Specific to DevUI (App Service)
+output DEVUI_URL string = devui.outputs.devuiUrl
+output AZURE_CONTAINER_REGISTRY_NAME string = devui.outputs.acrName
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = devui.outputs.acrLoginServer
+output SERVICE_DEVUI_NAME string = devui.outputs.appName

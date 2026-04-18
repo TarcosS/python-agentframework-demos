@@ -1,0 +1,6 @@
+# Only include files needed for the DevUI container build
+*
+!pyproject.toml
+!uv.lock
+!demo/
+!examples/

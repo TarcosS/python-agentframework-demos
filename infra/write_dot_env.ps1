@@ -21,3 +21,5 @@ $appInsightsConnectionString = azd env get-value APPLICATIONINSIGHTS_CONNECTION_
 Add-Content -Path .env -Value "APPLICATIONINSIGHTS_CONNECTION_STRING=$appInsightsConnectionString"
 $azureAiProject = azd env get-value AZURE_AI_PROJECT
 Add-Content -Path .env -Value "AZURE_AI_PROJECT=$azureAiProject"
+$devuiUrl = azd env get-value DEVUI_URL
+Add-Content -Path .env -Value "DEVUI_URL=$devuiUrl"

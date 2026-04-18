@@ -36,7 +36,16 @@ from demo.agent_roles import (
     build_analysis_workflow,
     build_approval_workflow,
     build_classification_workflow,
+    build_full_pipeline,
+    build_full_pipeline_detailed,
+    build_handoff_review,
     create_planner,
+    create_approval_agent,
+    create_classifier,
+    create_cost_agent,
+    create_integration_agent,
+    create_reliability_agent,
+    create_security_agent,
     run_handoff_review,
 )
 from demo.demo_config import create_client, create_eval_model_config, logger, setup_observability
@@ -304,11 +313,21 @@ if __name__ == "__main__":
     if "--devui" in sys.argv:
         from agent_framework.devui import serve
 
-        from demo.agent_roles import build_analysis_workflow
         from demo.demo_config import create_client
 
         client, _ = create_client()
-        workflow = build_analysis_workflow(client)
-        serve(entities=[workflow], port=8200, auto_open=True)
+        serve(entities=[
+            build_full_pipeline_detailed(client),    # Full pipeline with all internal nodes visible
+            build_classification_workflow(client),   # Stage 1: switch-case routing
+            create_planner(client),                  # Stage 2: supervisor + sub-agent tool
+            create_classifier(client),               # Specialist agent: classification
+            create_cost_agent(client),              # Specialist agent: cost analysis
+            create_reliability_agent(client),        # Specialist agent: reliability analysis
+            create_security_agent(client),           # Specialist agent: security analysis
+            create_integration_agent(client),        # Specialist agent: integration analysis
+            build_analysis_workflow(client),          # Stage 3: fan-out/fan-in 4 specialists
+            build_handoff_review(client),             # Stage 4: reviewer → editor → final_reviewer
+            build_approval_workflow(client),          # Stage 5: HITL tool approval gate
+        ], port=8200, auto_open=True, instrumentation_enabled=True)
     else:
         asyncio.run(main())

@@ -121,7 +121,17 @@ def build_classification_workflow(client: BaseChatClient):
     classifier = create_classifier(client)
 
     return (
-        WorkflowBuilder(name="classification", start_executor=classifier)
+         WorkflowBuilder(
+            name="classification",
+            description=(
+                "Classifies technical requests into architecture/incident/feature categories.\n\n"
+                "Sample inputs:\n"
+                "• We want to split our monolith into microservices.\n"
+                "• Our login service went down for 30 minutes this morning.\n"
+                "• We'd like to add email and in-app notifications."
+            ),
+            start_executor=classifier,
+        )
         .add_edge(classifier, extract_category)
         .add_switch_case_edge_group(
             extract_category,
@@ -309,7 +319,12 @@ def build_analysis_workflow(client: BaseChatClient):
     return (
         WorkflowBuilder(
             name="parallel_analysis",
-            description="Fan-out to 4 specialists, fan-in with LLM synthesis.",
+            description=(
+                "Fan-out to 4 specialists (Security, Reliability, Cost, Integration), fan-in with LLM synthesis.\n\n"
+                "Sample input:\n"
+                "• Analyze the security, reliability, cost, and integration implications of "
+                "migrating our monolithic web app to a microservices architecture."
+            ),
             start_executor=dispatcher,
             output_executors=[synthesizer],
         )
@@ -506,10 +521,313 @@ def build_approval_workflow(client: BaseChatClient):
     return (
         WorkflowBuilder(
             name="hitl_approval",
+            description=(
+                "HITL approval gate — the publish_recommendations tool requires human approval.\n\n"
+                "Sample input:\n"
+                "• Publish the analysis report: we recommend migrating to microservices in 3 phases."
+            ),
             start_executor=preprocessor,
             output_executors=[conclude_workflow],
         )
         .add_edge(preprocessor, approval_agent)
         .add_edge(approval_agent, conclude_workflow)
+        .build()
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FULL PIPELINE — All stages chained for DevUI
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class ClassifyStage(Executor):
+    """Stage 1 wrapper: runs the classification sub-workflow."""
+
+    def __init__(self, client: BaseChatClient):
+        super().__init__(id="1_classify")
+        self._client = client
+
+    @handler
+    async def run(self, request: str, ctx: WorkflowContext[str]) -> None:
+        workflow = build_classification_workflow(self._client)
+        events = await workflow.run(request)
+        outputs = events.get_outputs()
+        enriched = outputs[-1].text if outputs and hasattr(outputs[-1], "text") else request
+        await ctx.send_message(enriched)
+
+
+class PlanStage(Executor):
+    """Stage 2 wrapper: runs the planner agent (supervisor + sub-agent tool)."""
+
+    def __init__(self, client: BaseChatClient):
+        super().__init__(id="2_plan")
+        self._client = client
+
+    @handler
+    async def run(self, enriched: str, ctx: WorkflowContext[str]) -> None:
+        planner = create_planner(self._client)
+        response = await planner.run(enriched)
+        await ctx.send_message(response.text)
+
+
+class AnalyzeStage(Executor):
+    """Stage 3 wrapper: runs the parallel analysis sub-workflow."""
+
+    def __init__(self, client: BaseChatClient):
+        super().__init__(id="3_analyze")
+        self._client = client
+
+    @handler
+    async def run(self, plan: str, ctx: WorkflowContext[str]) -> None:
+        workflow = build_analysis_workflow(self._client)
+        events = await workflow.run(plan)
+        outputs = events.get_outputs()
+        synthesis = outputs[-1].text if outputs and hasattr(outputs[-1], "text") else plan
+        await ctx.send_message(synthesis)
+
+
+class ReviewStage(Executor):
+    """Stage 4 wrapper: runs the handoff review chain."""
+
+    def __init__(self, client: BaseChatClient):
+        super().__init__(id="4_review")
+        self._client = client
+
+    @handler
+    async def run(self, synthesis: str, ctx: WorkflowContext[Never, str]) -> None:
+        reviewed = await run_handoff_review(self._client, synthesis)
+        await ctx.yield_output(reviewed)
+
+
+def build_full_pipeline(client: BaseChatClient):
+    """Build the end-to-end pipeline: Classify → Plan → Analyze → Review.
+
+    Each stage wraps a sub-workflow or agent as an Executor, chained
+    sequentially so DevUI renders the full pipeline graph.
+    """
+    classify = ClassifyStage(client)
+    plan = PlanStage(client)
+    analyze = AnalyzeStage(client)
+    review = ReviewStage(client)
+
+    return (
+        WorkflowBuilder(
+            name="full_pipeline",
+            description=(
+                "End-to-end: Classify → Plan → Analyze → Review.\n\n"
+                "Sample inputs:\n"
+                "• We want to split our main web application into smaller, independent services.\n"
+                "• Our login service went down for about 30 minutes this morning.\n"
+                "• We'd like to add a notification system to our platform."
+            ),
+            start_executor=classify,
+            output_executors=[review],
+        )
+        .add_edge(classify, plan)
+        .add_edge(plan, analyze)
+        .add_edge(analyze, review)
+        .build()
+    )
+
+
+def build_full_pipeline_detailed(client: BaseChatClient):
+    """Build end-to-end pipeline with ALL internal nodes visible in DevUI.
+
+    DevUI graph shows every node across all stages connected in one graph:
+
+        Classifier → extract_category_p
+            ├─ (ArchitectureReview) → enrich_architecture_p ─┐
+            ├─ (IncidentAnalysis)  → enrich_incident_p ──────┤
+            └─ (default)           → enrich_feature_p ───────┘
+                                                              ↓
+        Planner → plan_bridge → dispatcher_p
+            ├─ SecurityAgent ────┐
+            ├─ ReliabilityAgent ─┤
+            ├─ CostAgent ────────┤  (fan-in)
+            └─ IntegrationAgent ─┘
+                                  ↓
+                           Synthesizer_p → handoff_review_p
+    """
+    from agent_framework import Case, Default
+
+    # ── Stage 1: Classification (all internal nodes) ──
+
+    classifier = create_classifier(client)
+
+    @executor(id="extract_category_p")
+    async def extract_category_p(
+        response: AgentExecutorResponse, ctx: WorkflowContext[ClassifyResult]
+    ) -> None:
+        result = ClassifyResult.model_validate_json(response.agent_response.text)
+        await ctx.send_message(result)
+
+    @executor(id="enrich_architecture_p")
+    async def enrich_architecture_p(result: ClassifyResult, ctx: WorkflowContext[str]) -> None:
+        enriched = (
+            f"[Category: Architecture Review | Priority: {result.priority}]\n\n"
+            f"Request: {result.original_request}\n\n"
+            "Analysis focus areas: design patterns, scalability, security boundaries, "
+            "data flow, service decomposition, API contracts, deployment topology."
+        )
+        await ctx.send_message(enriched)
+
+    @executor(id="enrich_incident_p")
+    async def enrich_incident_p(result: ClassifyResult, ctx: WorkflowContext[str]) -> None:
+        enriched = (
+            f"[Category: Incident Analysis | Priority: {result.priority}]\n\n"
+            f"Request: {result.original_request}\n\n"
+            "Analysis focus areas: root cause identification, blast radius, "
+            "recovery procedures, timeline reconstruction, prevention measures."
+        )
+        await ctx.send_message(enriched)
+
+    @executor(id="enrich_feature_p")
+    async def enrich_feature_p(result: ClassifyResult, ctx: WorkflowContext[str]) -> None:
+        enriched = (
+            f"[Category: Feature Request | Priority: {result.priority}]\n\n"
+            f"Request: {result.original_request}\n\n"
+            "Analysis focus areas: feasibility, effort estimation, dependencies, "
+            "user impact, backward compatibility, rollout strategy."
+        )
+        await ctx.send_message(enriched)
+
+    # ── Stage 2: Planning (Agent node) ──
+
+    planner = create_planner(client)
+
+    @executor(id="plan_bridge")
+    async def plan_bridge(response: AgentExecutorResponse, ctx: WorkflowContext[str]) -> None:
+        """Bridge: extract planner text and forward to analysis stage."""
+        await ctx.send_message(response.agent_response.text)
+
+    # ── Stage 3: Parallel Analysis (all internal nodes) ──
+
+    dispatcher = DispatchPrompt(id="dispatcher_p")
+    security = create_security_agent(client)
+    reliability = create_reliability_agent(client)
+    cost = create_cost_agent(client)
+    integration = create_integration_agent(client)
+    specialists = [security, reliability, cost, integration]
+
+    class PipelineSynthesizer(Executor):
+        """Synthesizer that forwards to next stage instead of yielding output."""
+
+        agent: Agent
+
+        def __init__(self, synth_client: BaseChatClient):
+            super().__init__(id="Synthesizer_p")
+            self.agent = Agent(
+                client=synth_client,
+                name="Synthesizer",
+                instructions=(
+                    "You receive analysis from four domain specialists: "
+                    "Security, Reliability, Cost, and Integration. "
+                    "Synthesize their findings into a structured executive brief with:\n"
+                    "1. Executive Summary (3 sentences)\n"
+                    "2. Key Findings by domain\n"
+                    "3. Critical Risks (ranked by severity)\n"
+                    "4. Recommended Actions (prioritized)\n\n"
+                    "Be concise and actionable. A VP of Engineering should be able to "
+                    "make decisions based on this brief."
+                ),
+            )
+
+        @handler
+        async def run(self, results: list[AgentExecutorResponse], ctx: WorkflowContext[str]) -> None:
+            sections = [f"[{r.executor_id}]\n{r.agent_response.text}" for r in results]
+            combined = "\n\n---\n\n".join(sections)
+            response = await self.agent.run(combined)
+            await ctx.send_message(response.text)
+
+    synthesizer = PipelineSynthesizer(client)
+
+    # ── Stage 4: Handoff Review (wrapped node — runs handoff chain internally) ──
+
+    class HandoffReviewNode(Executor):
+        """Runs the full handoff review chain internally and forwards result."""
+
+        def __init__(self, review_client: BaseChatClient):
+            super().__init__(id="handoff_review_p")
+            self._client = review_client
+
+        @handler
+        async def run(self, synthesis: str, ctx: WorkflowContext[str]) -> None:
+            reviewed = await run_handoff_review(self._client, synthesis)
+            await ctx.send_message(reviewed)
+
+    review = HandoffReviewNode(client)
+
+    # ── Stage 5: HITL Approval (direct nodes — DevUI shows approval buttons) ──
+
+    class PrepareForApprovalP(Executor):
+        """Preprocessor that sets up approval context for the pipeline."""
+
+        @handler
+        async def prepare(self, report: str, ctx: WorkflowContext[str]) -> None:
+            context = (
+                "The following analysis has been reviewed and is ready for publication. "
+                "Please prepare it for stakeholder distribution.\n\n"
+                f"{report}"
+            )
+            await ctx.send_message(context)
+
+    prepare_approval_p = PrepareForApprovalP(id="prepare_approval_p")
+    approval_agent_p = create_approval_agent(client)
+
+    @executor(id="conclude_pipeline")
+    async def conclude_pipeline(
+        response: AgentExecutorResponse,
+        ctx: WorkflowContext[Never, str],
+    ) -> None:
+        """Yield the final approved response as pipeline output."""
+        await ctx.yield_output(response.agent_response.text)
+
+    # ── Build single flat graph with all nodes ──
+
+    return (
+        WorkflowBuilder(
+            name="full_pipeline_detailed",
+            description=(
+                "5-stage pipeline: Classification → Planning → Analysis → Review → HITL Approval.\n\n"
+                "Sample inputs:\n"
+                "• Architecture: We want to split our main web application into smaller, independent "
+                "services. The app currently runs as a single deployment and we'd like to evaluate the "
+                "best way to break it apart, what risks are involved, and how to migrate without downtime.\n"
+                "• Incident: Our login service went down for about 30 minutes this morning. Users couldn't "
+                "sign in and some API calls returned errors. We need to understand what happened, how to "
+                "prevent it, and what we should improve in our monitoring.\n"
+                "• Feature: We'd like to add a notification system to our platform so users can receive "
+                "alerts via email and in-app. We need to evaluate the best approach, estimate the effort, "
+                "and identify any risks."
+            ),
+            start_executor=classifier,
+            output_executors=[conclude_pipeline],
+        )
+        # Stage 1: Classification with switch-case routing
+        .add_edge(classifier, extract_category_p)
+        .add_switch_case_edge_group(
+            extract_category_p,
+            [
+                Case(condition=is_architecture, target=enrich_architecture_p),
+                Case(condition=is_incident, target=enrich_incident_p),
+                Default(target=enrich_feature_p),
+            ],
+        )
+        # Converge: all enrich branches → Planner
+        .add_edge(enrich_architecture_p, planner)
+        .add_edge(enrich_incident_p, planner)
+        .add_edge(enrich_feature_p, planner)
+        # Stage 2 → Stage 3 bridge
+        .add_edge(planner, plan_bridge)
+        .add_edge(plan_bridge, dispatcher)
+        # Stage 3: Fan-out to 4 specialists, fan-in to synthesizer
+        .add_fan_out_edges(dispatcher, specialists)
+        .add_fan_in_edges(specialists, synthesizer)
+        # Stage 3 → Stage 4: Handoff review
+        .add_edge(synthesizer, review)
+        # Stage 4 → Stage 5: HITL approval
+        .add_edge(review, prepare_approval_p)
+        .add_edge(prepare_approval_p, approval_agent_p)
+        .add_edge(approval_agent_p, conclude_pipeline)
         .build()
     )

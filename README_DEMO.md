@@ -112,7 +112,36 @@ A single agent approach fails for this scenario because:
 
 - Python 3.10+
 - [uv](https://docs.astral.sh/uv/) for dependency management
-- Azure OpenAI or OpenAI API credentials (same `.env` setup as the main examples)
+- Azure credentials (run `azd provision` to set up Azure resources)
+
+### Infrastructure Setup
+
+```bash
+# Provision Azure AI Services + Foundry project + App Insights
+azd provision
+```
+
+This creates:
+- **Azure AI Services** account (kind: AIServices) with gpt-5.4 + text-embedding-3-large
+- **AI Foundry project** for agent workflows
+- **Application Insights** for telemetry
+
+The `.env` file is automatically populated by the post-provision hook.
+
+### Choosing a Provider
+
+The demo supports three providers via the `API_HOST` environment variable in `.env`:
+
+| API_HOST | Provider | Required env vars |
+|----------|----------|-------------------|
+| `foundry` | Microsoft Foundry (recommended) | `AZURE_AI_PROJECT`, `AZURE_OPENAI_CHAT_DEPLOYMENT` |
+| `azure` | Azure OpenAI directly | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_CHAT_DEPLOYMENT` |
+| `openai` | OpenAI API | `OPENAI_API_KEY` |
+
+After `azd provision`, switch to Foundry by editing `.env`:
+```
+API_HOST=foundry
+```
 
 ### Basic Run
 

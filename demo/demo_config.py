@@ -62,7 +62,7 @@ def create_client() -> tuple[Any, Any]:
         credential = _create_credential()
         token_provider = get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default")
         client = OpenAIChatClient(
-            base_url=f"{os.environ['AZURE_OPENAI_ENDPOINT']}/openai/v1/",
+            base_url=f"{os.environ['AZURE_OPENAI_ENDPOINT'].rstrip('/')}/openai/v1/",
             api_key=token_provider,
             model=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"],
         )

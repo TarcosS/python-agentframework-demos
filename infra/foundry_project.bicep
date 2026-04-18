@@ -94,5 +94,5 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
   dependsOn: [chatDeployment, embeddingDeployment]
 }
 
-output endpoint string = 'https://${account.properties.customSubDomainName}.openai.azure.com'
+output endpoint string = account.properties.endpoint
 output projectEndpoint string = 'https://${account.properties.customSubDomainName}.services.ai.azure.com/api/projects/${projectName}'

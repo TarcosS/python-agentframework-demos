@@ -3801,6 +3801,24 @@ dependencies = [
     { name = "rich" },
 ]
 
+[package.dev-dependencies]
+devui = [
+    { name = "agent-framework-core" },
+    { name = "agent-framework-devui" },
+    { name = "agent-framework-foundry" },
+    { name = "agent-framework-openai" },
+    { name = "agent-framework-orchestrations" },
+    { name = "aiohttp" },
+    { name = "azure-identity" },
+    { name = "azure-monitor-opentelemetry" },
+    { name = "dotenv-azd" },
+    { name = "openai" },
+    { name = "opentelemetry-exporter-otlp-proto-grpc" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "rich" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "agent-framework-azure-ai-search", specifier = "==1.0.0b260402" },
@@ -3823,6 +3841,24 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
     { name = "pgvector" },
     { name = "psycopg", extras = ["binary"] },
+    { name = "pydantic", specifier = ">=2.10,<2.13" },
+    { name = "python-dotenv" },
+    { name = "rich" },
+]
+
+[package.metadata.requires-dev]
+devui = [
+    { name = "agent-framework-core", specifier = "==1.0.0" },
+    { name = "agent-framework-devui", specifier = "==1.0.0b260402" },
+    { name = "agent-framework-foundry", specifier = ">=1.0.0" },
+    { name = "agent-framework-openai", specifier = "==1.0.0" },
+    { name = "agent-framework-orchestrations", specifier = "==1.0.0b260402" },
+    { name = "aiohttp" },
+    { name = "azure-identity" },
+    { name = "azure-monitor-opentelemetry" },
+    { name = "dotenv-azd" },
+    { name = "openai", specifier = ">=1.109.1" },
+    { name = "opentelemetry-exporter-otlp-proto-grpc" },
     { name = "pydantic", specifier = ">=2.10,<2.13" },
     { name = "python-dotenv" },
     { name = "rich" },

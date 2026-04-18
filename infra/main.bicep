@@ -93,11 +93,13 @@ var prefix = '${environmentName}${resourceToken}'
 var tags = { 'azd-env-name': environmentName }
 
 // Organize resources in a resource group
-resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = {
-  name: 'davic-cc-sandbox-rg'
+resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
+  name: 'davic-cc-sandbox-rg-v1'
+  location: location
+  tags: tags
 }
 
-var openAiServiceName = '${prefix}-ai-openaitr'
+var openAiServiceName = '${prefix}-ai-new-new'
 var aiProjectName = '${prefix}-project'
 
 // AI Services account + model deployments + Foundry project
@@ -150,7 +152,7 @@ module appInsights 'br/public:avm/res/insights/component:0.4.2' = {
   }
 }
 
-// DevUI — App Service deployment (private, token-authenticated)
+// DevUI — Container Apps deployment (private, token-authenticated)
 module devui 'devui.bicep' = {
   name: 'devui'
   scope: resourceGroup
@@ -164,9 +166,9 @@ module devui 'devui.bicep' = {
     azureOpenAiChatModel: azureOpenaiChatModel
     azureOpenAiEmbeddingDeployment: azureOpenaiEmbeddingDeployment
     azureOpenAiEmbeddingModel: azureOpenaiEmbeddingModel
-    azureTenantId: tenant().tenantId
     appInsightsConnectionString: appInsights.outputs.connectionString
     azureAiProject: openAi.outputs.projectEndpoint
+    cognitiveAccountName: openAiServiceName
   }
 }
 

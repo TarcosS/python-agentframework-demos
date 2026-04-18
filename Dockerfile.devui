@@ -15,4 +15,4 @@ COPY examples/ examples/
 
 EXPOSE 8080
 
-CMD ["uv", "run", "python", "demo/devui_server.py"]
+CMD [".venv/bin/python", "demo/devui_server.py"]

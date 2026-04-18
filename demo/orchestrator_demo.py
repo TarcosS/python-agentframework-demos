@@ -47,24 +47,21 @@ console = Console()
 
 SAMPLE_REQUESTS = {
     "architecture": (
-        "We need to review the proposed architecture for migrating our monolithic "
-        "e-commerce platform to microservices. The current system handles 50K RPM "
-        "with a PostgreSQL database and a Redis cache layer. We plan to decompose "
-        "into 8 services with an API gateway, event-driven communication via Kafka, "
-        "and a gradual strangler fig migration over 6 months."
+        "We want to split our main web application into smaller, independent "
+        "services. The app currently runs as a single deployment and we'd like "
+        "to evaluate the best way to break it apart, what risks are involved, "
+        "and how to migrate without downtime."
     ),
     "incident": (
-        "Critical: Our payment processing service experienced a 45-minute outage "
-        "this morning between 02:15 and 03:00 UTC. Approximately 12,000 transactions "
-        "failed. Root cause appears to be a certificate expiration on the mTLS "
-        "connection to the payment gateway. We need a full incident analysis and "
-        "prevention recommendations."
+        "Our login service went down for about 30 minutes this morning. Users "
+        "couldn't sign in and some API calls returned errors. We need to "
+        "understand what happened, how to prevent it, and what we should "
+        "improve in our monitoring."
     ),
     "feature": (
-        "Product team is requesting a real-time collaborative editing feature "
-        "for our document management system. Requirements include concurrent "
-        "editing by up to 50 users, conflict resolution, version history, and "
-        "offline support. We need to evaluate build vs buy and integration impact."
+        "We'd like to add a notification system to our platform so users can "
+        "receive alerts via email and in-app. We need to evaluate the best "
+        "approach, estimate the effort, and identify any risks."
     ),
 }
 

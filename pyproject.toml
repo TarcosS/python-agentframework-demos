@@ -7,7 +7,7 @@ dependencies = [
     "azure-identity",
     "openai>=1.109.1",
     "python-dotenv",
-    "pydantic",
+    "pydantic>=2.10,<2.13",
     "rich",
     "dotenv-azd",
     "aiohttp",
